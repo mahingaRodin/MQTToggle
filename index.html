@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTToggle - Light Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Light Control</h1>
+    <button onclick="sendCommand('ON')">Turn ON</button>
+    <button onclick="sendCommand('OFF')">Turn OFF</button>
+    <p id="status">Status: Waiting for command...</p>
+
+    <!-- Include MQTT.js from CDN -->
+    <script src="https://unpkg.com/mqtt@5.0.4/dist/mqtt.min.js"></script>
+    <script>
+        // Connect to local Mosquitto broker over WebSockets
+        const client = mqtt.connect('ws://localhost:1883');
+
+        client.on('connect', () => {
+            console.log('Connected to local MQTT broker');
+        });
+
+        client.on('error', (err) => {
+            console.error('Connection error: ', err);
+        });
+
+        function sendCommand(command) {
+            const topic = '/student_group/light_control';
+            client.publish(topic, command, (err) => {
+                if (!err) {
+                    document.getElementById('status').innerText = `Status: Last command sent - ${command}`;
+                    console.log(`Published ${command} to ${topic}`);
+                } else {
+                    console.error('Publish error: ', err);
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>
