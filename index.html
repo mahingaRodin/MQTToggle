@@ -1,62 +1,302 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MQTToggle - Light Control</title>
+    <title>MQTT Light Control</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
     <style>
+        :root {
+            --primary-color: #4361ee;
+            --success-color: #4CAF50;
+            --error-color: #f44336;
+            --warning-color: #ff9800;
+            --light-gray: #f8f9fa;
+            --dark-gray: #343a40;
+            --text-color: #333;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
+            background-color: #f5f7fa;
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background-color: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
+        }
+
+        h1 {
+            color: var(--dark-gray);
+            margin-bottom: 30px;
             text-align: center;
-            margin-top: 50px;
+            font-weight: 600;
+            font-size: 28px;
         }
 
-        button {
-            padding: 10px 20px;
-            margin: 5px;
+        .light-indicator {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin: 0 auto 30px;
+            background-color: #e0e0e0;
+            border: 6px solid #f0f0f0;
+            position: relative;
+            transition: var(--transition);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .light-indicator.on {
+            background-color: var(--success-color);
+            box-shadow: 0 0 30px rgba(76, 175, 80, 0.5);
+        }
+
+        .light-indicator.off {
+            background-color: #e0e0e0;
+        }
+
+        .light-indicator i {
+            font-size: 40px;
+            color: white;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
             font-size: 16px;
+            font-weight: 500;
+            transition: var(--transition);
+            min-width: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
-        #status {
-            margin-top: 20px;
-            font-size: 18px;
+        .btn-on {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-off {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 14px rgba(0, 0, 0, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .status {
+            background-color: var(--light-gray);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .status-message {
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ccc;
+            display: inline-block;
+            transition: var(--transition);
+        }
+
+        .status-indicator.connected {
+            background-color: var(--success-color);
+        }
+
+        .status-indicator.error {
+            background-color: var(--error-color);
+        }
+
+        .status-indicator.reconnecting {
+            background-color: var(--warning-color);
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .light-indicator {
+                width: 100px;
+                height: 100px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .btn {
+                width: 100%;
+            }
         }
     </style>
 </head>
-
 <body>
-    <h1>Light Control</h1>
-    <button onclick="sendCommand('ON')">Turn ON</button>
-    <button onclick="sendCommand('OFF')">Turn OFF</button>
-    <p id="status">Status: Waiting for command...</p>
+    <div class="container">
+        <h1>MQTT Light Control</h1>
 
-    <!-- Include MQTT.js from CDN -->
-    <script src="https://unpkg.com/mqtt@5.0.4/dist/mqtt.min.js"></script>
+        <div id="lightIndicator" class="light-indicator off">
+            <!-- Light bulb visual representation -->
+        </div>
+
+        <div class="controls">
+            <button id="btnOn" class="btn btn-on">Turn ON</button>
+            <button id="btnOff" class="btn btn-off">Turn OFF</button>
+        </div>
+
+        <div class="status">
+            <p>Status: <span id="statusMessage" class="status-message">Not sent yet</span></p>
+        </div>
+
+        <div class="connection-status">
+            <span id="statusIndicator" class="status-indicator"></span>
+            <p>Connection: <span id="connectionStatus">Disconnected</span></p>
+        </div>
+    </div>
+
     <script>
-        // Connect to local Mosquitto broker over WebSockets
-        const client = mqtt.connect('ws://localhost:1883');
+        // MQTT Configuration
+        const brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
+        const clientId = 'web_client_' + Math.random().toString(16).substr(2, 8);
+        const topic = '/student_group/light_control';
 
+        // MQTT Client
+        let client = mqtt.connect(brokerUrl, {
+            clientId: clientId,
+            clean: true,
+            connectTimeout: 4000,
+            reconnectPeriod: 1000
+        });
+
+        // Connection event handlers
         client.on('connect', () => {
-            console.log('Connected to local MQTT broker');
+            console.log('Connected to MQTT broker');
+            document.getElementById('connectionStatus').textContent = 'Connected';
+            document.getElementById('connectionStatus').style.color = '#4CAF50';
+            document.getElementById('statusIndicator').classList.add('connected');
         });
 
         client.on('error', (err) => {
-            console.error('Connection error: ', err);
+            console.error('Connection error:', err);
+            document.getElementById('connectionStatus').textContent = 'Error: ' + err.message;
+            document.getElementById('connectionStatus').style.color = '#f44336';
+            document.getElementById('statusIndicator').classList.remove('connected', 'reconnecting');
+            document.getElementById('statusIndicator').classList.add('error');
         });
 
+        client.on('reconnect', () => {
+            console.log('Reconnecting...');
+            document.getElementById('connectionStatus').textContent = 'Reconnecting...';
+            document.getElementById('connectionStatus').style.color = '#ff9800';
+            document.getElementById('statusIndicator').classList.remove('connected', 'error');
+            document.getElementById('statusIndicator').classList.add('reconnecting');
+        });
+
+        // Button event listeners
+        document.getElementById('btnOn').addEventListener('click', () => {
+            sendCommand('ON');
+        });
+
+        document.getElementById('btnOff').addEventListener('click', () => {
+            sendCommand('OFF');
+        });
+
+        // Function to send MQTT message
         function sendCommand(command) {
-            const topic = '/student_group/light_control';
-            client.publish(topic, command, (err) => {
-                if (!err) {
-                    document.getElementById('status').innerText = `Status: Last command sent - ${command}`;
-                    console.log(`Published ${command} to ${topic}`);
+            if (!client.connected) {
+                alert('Not connected to MQTT broker. Please wait for connection.');
+                return;
+            }
+
+            client.publish(topic, command, { qos: 0, retain: false }, (error) => {
+                if (error) {
+                    console.error('Publish error:', error);
+                    alert('Failed to send command: ' + error.message);
                 } else {
-                    console.error('Publish error: ', err);
+                    console.log('Published:', command);
+                    updateStatus(command);
                 }
             });
         }
+
+        // Update status message and light indicator
+        function updateStatus(command) {
+            const statusElement = document.getElementById('statusMessage');
+            const lightIndicator = document.getElementById('lightIndicator');
+            
+            statusElement.textContent = `Light is TURNED ${command}`;
+            statusElement.style.color = command === 'ON' ? '#4CAF50' : '#f44336';
+            
+            if (command === 'ON') {
+                lightIndicator.classList.remove('off');
+                lightIndicator.classList.add('on');
+            } else {
+                lightIndicator.classList.remove('on');
+                lightIndicator.classList.add('off');
+            }
+        }
     </script>
 </body>
-
 </html>
